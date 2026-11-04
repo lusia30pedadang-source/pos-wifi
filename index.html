@@ -1,0 +1,1362 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>WiFi Cashier Mobile POS</title>
+    
+    <!-- PWA & Mobile Meta Tags -->
+    <meta name="theme-color" content="#059669">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="WiFi POS">
+
+    <!-- Web App Manifest Inline Data -->
+    <link rel="manifest" id="manifest-placeholder">
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome CDN -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Font Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#ecfdf5',
+                            100: '#d1fae5',
+                            500: '#10b981',
+                            600: '#059669',
+                            700: '#047857',
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; }
+        ::-webkit-scrollbar { width: 4px; height: 4px; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        .dark ::-webkit-scrollbar-thumb { background: #475569; }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 dark:bg-slate-900 dark:text-slate-100 min-h-screen flex flex-col pb-16 transition-colors duration-200">
+
+    <!-- Toast Notification -->
+    <div id="toast-container" class="fixed top-3 left-3 right-3 z-50 flex flex-col gap-2 max-w-md mx-auto pointer-events-none"></div>
+
+    <!-- BANNER TOMBOL INSTALL APLIKASI (PWA PROMPT) -->
+    <div id="install-pwa-banner" class="hidden bg-emerald-700 text-white p-3 px-4 flex items-center justify-between gap-2 shadow-md">
+        <div class="flex items-center gap-2.5 text-xs font-semibold">
+            <i class="fa-solid fa-mobile-screen-button text-base animate-pulse"></i>
+            <span>Tambahkan Aplikasi POS ke Layar Utama HP?</span>
+        </div>
+        <button id="btn-install-app" class="px-3 py-1.5 bg-white text-emerald-800 text-xs font-bold rounded-xl shadow-sm shrink-0">
+            Install
+        </button>
+    </div>
+
+    <!-- MODAL KEAMANAN APP / NOTEPAD PIN -->
+    <div id="modal-app-lock" class="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-slate-800 rounded-3xl p-6 max-w-xs w-full text-center space-y-4 shadow-2xl">
+            <div class="w-12 h-12 rounded-2xl bg-rose-100 text-rose-600 dark:bg-rose-950 dark:text-rose-400 flex items-center justify-center mx-auto text-xl">
+                <i class="fa-solid fa-user-shield"></i>
+            </div>
+            <div>
+                <h3 class="text-base font-bold text-slate-900 dark:text-white">Akses Pengaman Aplikasi</h3>
+                <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Masukkan Sandi Otentikasi</p>
+            </div>
+
+            <input type="password" id="input-app-lock-pin" maxlength="6" inputmode="numeric" placeholder="Sandi Khusus" class="w-full text-center tracking-widest text-lg font-bold py-2 rounded-xl border border-slate-300 dark:border-slate-700 dark:bg-slate-900 focus:ring-2 focus:ring-rose-500 focus:outline-none">
+
+            <div class="flex gap-2 pt-1">
+                <button onclick="closeAppLockModal()" class="flex-1 py-2.5 rounded-xl text-xs font-semibold bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">Batal</button>
+                <button onclick="verifyAppMasterLock()" class="flex-1 py-2.5 rounded-xl text-xs font-semibold bg-rose-600 text-white shadow-md shadow-rose-500/20">Konfirmasi</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL KONFIRMASI HAPUS DATA MASTER -->
+    <div id="modal-delete-master" class="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-slate-800 rounded-3xl p-6 max-w-xs w-full text-center space-y-4 shadow-2xl">
+            <div class="w-12 h-12 rounded-2xl bg-rose-100 text-rose-600 dark:bg-rose-950 dark:text-rose-400 flex items-center justify-center mx-auto text-xl">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+            </div>
+            <div>
+                <h3 class="text-base font-bold text-slate-900 dark:text-white">Hapus Data Master</h3>
+                <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Tindakan ini akan menghapus seluruh data & stok voucher. Masukkan sandi pengaman:</p>
+            </div>
+
+            <input type="password" id="input-delete-master-pin" maxlength="6" inputmode="numeric" placeholder="Masukkan Sandi Keamanan" class="w-full text-center tracking-widest text-lg font-bold py-2 rounded-xl border border-slate-300 dark:border-slate-700 dark:bg-slate-900 focus:ring-2 focus:ring-rose-500 focus:outline-none">
+
+            <div class="flex gap-2 pt-1">
+                <button onclick="closeDeleteMasterModal()" class="flex-1 py-2.5 rounded-xl text-xs font-semibold bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">Batal</button>
+                <button onclick="submitDeleteMasterData()" class="flex-1 py-2.5 rounded-xl text-xs font-semibold bg-rose-600 text-white shadow-md shadow-rose-500/20">Hapus Data</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL PEMBELIAN VOUCHER & PIN KASIR -->
+    <div id="modal-pin" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-slate-800 rounded-3xl p-6 max-w-xs w-full text-center space-y-4 shadow-2xl">
+            <div class="w-12 h-12 rounded-2xl bg-amber-100 text-amber-600 dark:bg-amber-950 dark:text-amber-400 flex items-center justify-center mx-auto text-xl">
+                <i class="fa-solid fa-cart-shopping"></i>
+            </div>
+            <div>
+                <h3 class="text-base font-bold text-slate-900 dark:text-white">Form Transaksi Kasir</h3>
+                <p id="pin-modal-pkg" class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Paket WiFi</p>
+            </div>
+
+            <div class="space-y-1 text-left">
+                <label class="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Jumlah Voucher Yang Dibeli:</label>
+                <input type="number" id="input-sell-qty" min="1" value="1" inputmode="numeric" class="w-full text-center text-base font-bold py-2 rounded-xl border border-slate-300 dark:border-slate-700 dark:bg-slate-900 focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+            </div>
+
+            <div class="space-y-1 text-left">
+                <label class="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Sandi/PIN Kasir:</label>
+                <input type="password" id="input-kasir-pin" maxlength="6" pattern="[0-9]*" inputmode="numeric" placeholder="Masukkan Sandi" class="w-full text-center tracking-widest text-lg font-bold py-2 rounded-xl border border-slate-300 dark:border-slate-700 dark:bg-slate-900 focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+            </div>
+
+            <div class="flex gap-2 pt-1">
+                <button onclick="closePinModal()" class="flex-1 py-2.5 rounded-xl text-xs font-semibold bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">Batal</button>
+                <button onclick="submitPinAndSell()" class="flex-1 py-2.5 rounded-xl text-xs font-semibold bg-emerald-600 text-white shadow-md shadow-emerald-500/20">Proses Jual</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL SUKSES & KIRIM WA -->
+    <div id="modal-success" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-slate-800 rounded-3xl p-5 max-w-xs w-full text-center space-y-4 shadow-2xl">
+            <div class="w-12 h-12 rounded-full bg-emerald-100 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400 flex items-center justify-center mx-auto text-xl">
+                <i class="fa-solid fa-circle-check"></i>
+            </div>
+            <div>
+                <h3 class="text-base font-bold text-slate-900 dark:text-white">Berhasil Terjual!</h3>
+                <p id="success-modal-pkg" class="text-xs text-slate-500 dark:text-slate-400">Paket WiFi - Rp 0</p>
+            </div>
+            
+            <div class="p-3 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-1.5 max-h-40 overflow-y-auto">
+                <span class="text-[10px] uppercase font-bold text-slate-400 block">Kode Voucher Terbeli</span>
+                <div id="success-modal-codes-container" class="space-y-1 font-mono font-bold text-emerald-600 dark:text-emerald-400 text-sm lowercase">
+                    <!-- Dynamic Lowercase -->
+                </div>
+            </div>
+
+            <div class="space-y-1.5 text-left">
+                <label class="text-[11px] font-semibold text-slate-500 dark:text-slate-400">No. WA Pelanggan (Opsional):</label>
+                <input type="tel" id="input-customer-wa" placeholder="08123456789" class="w-full text-xs py-2 px-3 rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-900 focus:outline-none">
+            </div>
+
+            <div class="flex flex-col gap-2">
+                <button onclick="sendVoucherToCustomerWA()" class="w-full py-2.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl text-xs flex items-center justify-center gap-2 shadow-md shadow-emerald-500/20">
+                    <i class="fa-brands fa-whatsapp text-sm"></i> Kirim Kode via WhatsApp
+                </button>
+                <button onclick="closeSuccessModal()" class="w-full py-2 px-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 font-semibold rounded-xl text-xs">
+                    Selesai / Lanjut
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Header HP -->
+    <header class="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 sticky top-0 z-30 px-4 py-3 shadow-sm">
+        <div class="flex items-center justify-between max-w-md mx-auto">
+            <div class="flex items-center gap-2.5">
+                <div class="w-8 h-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center text-sm shadow-sm">
+                    <i class="fa-solid fa-bolt"></i>
+                </div>
+                <div>
+                    <h1 class="text-sm font-bold text-slate-900 dark:text-white leading-none">WiFi POS Kasir</h1>
+                    <div class="flex items-center gap-1.5 mt-0.5">
+                        <span id="header-kasir-id" class="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold block">Kasir: Belum Set</span>
+                        <span id="header-starlink-unit" class="text-[9px] px-1.5 py-0.2 bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-300 rounded font-semibold hidden">Starlink: -</span>
+                    </div>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <button onclick="openAppLockModal()" class="p-2 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-xs" title="Ganti Mode / Kunci">
+                    <i class="fa-solid fa-shield-halved"></i>
+                </button>
+                <button id="theme-toggle" class="p-2 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-xs">
+                    <i id="theme-icon" class="fa-solid fa-moon"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Mobile Container -->
+    <main class="flex-1 max-w-md w-full mx-auto p-4 space-y-4">
+
+        <!-- BANNER PERINGATAN REKAP WA & JSON (Terkunci) -->
+        <div id="recap-reminder-banner" class="hidden p-3.5 bg-rose-600 text-white rounded-2xl shadow-lg flex items-center justify-between gap-2">
+            <div class="flex items-center gap-2.5 text-xs font-medium">
+                <i class="fa-solid fa-lock text-base animate-bounce"></i>
+                <span id="recap-banner-text">Penjualan dikunci! Silakan lakukan pengiriman di Tab 3.</span>
+            </div>
+            <button onclick="switchTab('master-data')" class="px-3 py-1.5 bg-white text-rose-700 text-[11px] font-bold rounded-xl shrink-0 shadow-sm">Buka Tab 3</button>
+        </div>
+
+        <!-- TAB 1: POS -->
+        <section id="tab-pos" class="tab-content space-y-4">
+            <div class="flex justify-between items-center text-xs">
+                <h2 class="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                    <i class="fa-solid fa-wifi text-emerald-500"></i> Pilihan Paket WiFi
+                </h2>
+                <span id="total-ready-badge" class="text-[11px] text-slate-400">Stok: 0 Pcs</span>
+            </div>
+
+            <div id="pos-grid" class="grid grid-cols-2 gap-3">
+                <div class="col-span-2 py-12 text-center text-slate-400 text-xs bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700">
+                    <i class="fa-solid fa-box-open text-3xl mb-1 block"></i>
+                    Belum ada stok voucher. Silakan upload file alokasi dari Admin di Tab 2.
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 2: SHIFT & HISTORY -->
+        <section id="tab-shift-history" class="tab-content space-y-4 hidden">
+            <div class="bg-white dark:bg-slate-800 rounded-2xl p-4 border border-slate-200 dark:border-slate-700 space-y-3">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h2 class="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                            <i class="fa-solid fa-file-arrow-up text-emerald-500"></i> Upload Voucher Dari Admin
+                        </h2>
+                        <p class="text-[10px] text-slate-400 mt-0.5">Stok lama & riwayat tidak akan hilang.</p>
+                    </div>
+                    <input type="file" id="input-json-alokasi" accept=".json" class="hidden" onchange="importAlokasiJSON(event)">
+                    <button onclick="document.getElementById('input-json-alokasi').click()" class="py-1.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold shrink-0">
+                        Upload .JSON
+                    </button>
+                </div>
+            </div>
+
+            <!-- RINGKASAN HARI INI (PER PAKET) -->
+            <div class="bg-white dark:bg-slate-800 rounded-2xl p-4 border border-slate-200 dark:border-slate-700 space-y-3">
+                <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-700 pb-2">
+                    <div>
+                        <span class="text-xs font-bold text-slate-900 dark:text-white block">Ringkasan Hari Ini Per Paket</span>
+                        <span id="shift-date-label" class="text-[10px] text-slate-400">Tanggal: -</span>
+                    </div>
+                    <span id="shift-sold-count" class="text-xs font-bold text-emerald-600 dark:text-emerald-400">Total: 0 Pcs</span>
+                </div>
+
+                <div id="shift-package-breakdown" class="space-y-1.5 text-xs">
+                    <div class="text-slate-400 text-[11px] italic">Belum ada data penjualan hari ini.</div>
+                </div>
+
+                <div class="pt-2 border-t border-slate-100 dark:border-slate-700 flex justify-between items-center text-xs">
+                    <span class="font-bold text-slate-500">Total Omset Hari Ini:</span>
+                    <strong id="shift-revenue" class="text-sm font-black text-emerald-600 dark:text-emerald-400">Rp 0</strong>
+                </div>
+            </div>
+
+            <div class="bg-white dark:bg-slate-800 rounded-2xl p-4 border border-slate-200 dark:border-slate-700 space-y-3">
+                <h3 class="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                    <i class="fa-solid fa-calendar-days text-emerald-500"></i> Rekapan Penjualan Per-Harian
+                </h3>
+
+                <div class="overflow-x-auto max-h-48 overflow-y-auto">
+                    <table class="w-full text-left text-xs border-collapse">
+                        <thead class="sticky top-0 bg-white dark:bg-slate-800 text-[10px] text-slate-400 uppercase border-b border-slate-200 dark:border-slate-700">
+                            <tr>
+                                <th class="py-2">Tanggal</th>
+                                <th class="py-2 text-center">Terjual</th>
+                                <th class="py-2 text-right">Omset</th>
+                            </tr>
+                        </thead>
+                        <tbody id="daily-recap-tbody" class="divide-y divide-slate-100 dark:divide-slate-700/50">
+                            <!-- Dynamic -->
+                        </tbody>
+                    </table>
+                    <div id="daily-recap-empty" class="py-4 text-center text-slate-400 text-xs">Belum ada rekapan harian.</div>
+                </div>
+            </div>
+
+            <div class="bg-white dark:bg-slate-800 rounded-2xl p-4 border border-slate-200 dark:border-slate-700 space-y-3">
+                <h3 class="text-xs font-bold text-slate-900 dark:text-white">Riwayat Seluruh Penjualan</h3>
+                
+                <div class="overflow-x-auto max-h-52 overflow-y-auto">
+                    <table class="w-full text-left text-xs border-collapse">
+                        <thead class="sticky top-0 bg-white dark:bg-slate-800 text-[10px] text-slate-400 uppercase border-b border-slate-200 dark:border-slate-700">
+                            <tr>
+                                <th class="py-2">Kode</th>
+                                <th class="py-2">Paket</th>
+                                <th class="py-2 text-right">Kirim WA</th>
+                            </tr>
+                        </thead>
+                        <tbody id="history-tbody" class="divide-y divide-slate-100 dark:divide-slate-700/50">
+                            <!-- Dynamic -->
+                        </tbody>
+                    </table>
+                    <div id="history-empty" class="py-8 text-center text-slate-400 text-xs">Belum ada transaksi.</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 3: MASTER DATA (PELAPORAN WA & JSON) -->
+        <section id="tab-master-data" class="tab-content space-y-4 hidden">
+            <div class="bg-white dark:bg-slate-800 rounded-2xl p-4 border border-slate-200 dark:border-slate-700 space-y-3">
+                <div class="flex items-center gap-2">
+                    <div class="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400 flex items-center justify-center text-sm">
+                        <i class="fa-brands fa-whatsapp"></i>
+                    </div>
+                    <div>
+                        <h2 class="text-xs font-bold text-slate-900 dark:text-white">Pelaporan Ke Admin WA</h2>
+                        <p class="text-[10px] text-slate-400">Admin WA: +62 858-5350-0269</p>
+                    </div>
+                </div>
+
+                <div class="p-3 bg-slate-50 dark:bg-slate-900 rounded-xl text-[11px] space-y-1">
+                    <div class="flex justify-between">
+                        <span class="text-slate-400">Belum Dilaporkan (3 Jam):</span>
+                        <strong id="unreported-count" class="text-emerald-600 dark:text-emerald-400 font-bold">0 Pcs</strong>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-slate-400">Status File JSON Hari Ini:</span>
+                        <strong id="json-reported-status" class="text-slate-800 dark:text-white font-bold">Belum Dikirim</strong>
+                    </div>
+                </div>
+
+                <div class="space-y-2 pt-1">
+                    <!-- 1. TOMBOL AWAL (KIRIM REKAP PENJUALAN WA) -->
+                    <button onclick="sendSalesRecapToAdminWA()" class="w-full py-2.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-2 shadow-md shadow-emerald-500/20">
+                        <i class="fa-brands fa-whatsapp"></i> Kirim Rekap Penjualan (WA)
+                    </button>
+
+                    <!-- 2. TOMBOL KIRIM FILE JSON -->
+                    <button onclick="sendMasterJSONToAdminWA()" class="w-full py-2.5 px-3 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-2 shadow-md shadow-blue-500/20">
+                        <i class="fa-solid fa-file-arrow-down"></i> Kirim File JSON (Unduh & WA)
+                    </button>
+
+                    <!-- 3. TOMBOL BARU: TRANSFER KE ADMIN (DIBAWAH KIRIM FILE JSON) -->
+                    <button onclick="sendTransferToAdminWA()" class="w-full py-2.5 px-3 bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-2 shadow-md shadow-teal-500/20">
+                        <i class="fa-solid fa-money-bill-transfer"></i> TRANSFER KE ADMIN (Kirim WA)
+                    </button>
+                </div>
+            </div>
+
+            <div class="bg-white dark:bg-slate-800 rounded-2xl p-4 border border-slate-200 dark:border-slate-700 space-y-3">
+                <h3 class="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                    <i class="fa-solid fa-key text-amber-500"></i> Ubah / Reset Sandi Kasir
+                </h3>
+
+                <div class="space-y-2">
+                    <input type="password" id="reset-pin-old" maxlength="6" inputmode="numeric" placeholder="Sandi Lama (Def: 1234)" class="w-full text-xs py-2 px-3 rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-900 focus:outline-none">
+                    <input type="password" id="reset-pin-new" maxlength="6" inputmode="numeric" placeholder="Sandi Baru (Misal: 5678)" class="w-full text-xs py-2 px-3 rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-900 focus:outline-none">
+                </div>
+
+                <button onclick="changeKasirPin()" class="w-full py-2 px-3 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition-all">
+                    <i class="fa-solid fa-check"></i> Simpan Sandi Baru
+                </button>
+            </div>
+
+            <div class="bg-white dark:bg-slate-800 rounded-2xl p-4 border border-slate-200 dark:border-slate-700 space-y-3">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-xs font-bold text-slate-900 dark:text-white">Kelola Data Master</h3>
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <button onclick="downloadKasirMasterJSON()" class="py-2.5 px-3 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 text-slate-700 dark:text-slate-200 text-xs font-semibold rounded-xl flex items-center justify-center gap-1.5">
+                        <i class="fa-solid fa-lock text-emerald-500"></i> Unduh JSON
+                    </button>
+                    <input type="file" id="input-restore-master" accept=".json" class="hidden" onchange="restoreKasirMasterJSON(event)">
+                    <button onclick="document.getElementById('input-restore-master').click()" class="py-2.5 px-3 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 text-slate-700 dark:text-slate-200 text-xs font-semibold rounded-xl flex items-center justify-center gap-1.5">
+                        <i class="fa-solid fa-key text-amber-500"></i> Unggah JSON
+                    </button>
+                </div>
+
+                <button onclick="openDeleteMasterModal()" class="w-full mt-2 py-2.5 px-3 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 text-rose-600 dark:text-rose-400 text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition-all border border-rose-200 dark:border-rose-900/50">
+                    <i class="fa-solid fa-trash-can"></i> Hapus Data Master
+                </button>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Bottom Navigation Bar Mobile -->
+    <nav class="fixed bottom-0 left-0 right-0 bg-white dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 z-30">
+        <div class="max-w-md mx-auto grid grid-cols-3 text-center text-xs">
+            <button onclick="switchTab('pos')" id="tab-btn-pos" class="tab-btn py-2.5 flex flex-col items-center gap-1 text-emerald-600 font-bold">
+                <i class="fa-solid fa-cash-register text-base"></i>
+                <span class="text-[10px]">1. WiFi POS</span>
+            </button>
+            <button onclick="switchTab('shift-history')" id="tab-btn-shift-history" class="tab-btn py-2.5 flex flex-col items-center gap-1 text-slate-400 font-medium">
+                <i class="fa-solid fa-clock-rotate-left text-base"></i>
+                <span class="text-[10px]">2. Shift & History</span>
+            </button>
+            <button onclick="switchTab('master-data')" id="tab-btn-master-data" class="tab-btn py-2.5 flex flex-col items-center gap-1 text-slate-400 font-medium">
+                <i class="fa-solid fa-database text-base"></i>
+                <span class="text-[10px]">3. Master Data</span>
+            </button>
+        </div>
+    </nav>
+
+    <!-- APPLICATION LOGIC JAVASCRIPT -->
+    <script>
+        const manifestData = {
+            "name": "WiFi Kasir Mobile POS",
+            "short_name": "WiFi POS",
+            "start_url": ".",
+            "display": "standalone",
+            "background_color": "#0f172a",
+            "theme_color": "#059669",
+            "icons": [
+                {
+                    "src": "https://cdn-icons-png.flaticon.com/512/9322/9322127.png",
+                    "sizes": "512x512",
+                    "type": "image/png"
+                }
+            ]
+        };
+        const manifestString = JSON.stringify(manifestData);
+        const manifestBlob = new Blob([manifestString], {type: 'application/json'});
+        document.getElementById('manifest-placeholder').setAttribute('href', URL.createObjectURL(manifestBlob));
+
+        let deferredPrompt;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            document.getElementById('install-pwa-banner').classList.remove('hidden');
+        });
+
+        document.getElementById('btn-install-app').addEventListener('click', async () => {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                const { outcome } = await deferredPrompt.userChoice;
+                if (outcome === 'accepted') {
+                    showToast('Aplikasi berhasil ditambahkan ke HP!', 'success');
+                }
+                deferredPrompt = null;
+                document.getElementById('install-pwa-banner').classList.add('hidden');
+            }
+        });
+
+        const STORAGE_KEY_KASIR_DATA = 'wifi_kasir_active_session_v9';
+        const STORAGE_KEY_KASIR_PIN = 'wifi_kasir_pin_code_v9';
+        const APP_MASTER_LOCK_PIN = "050501"; 
+        const ADMIN_WA_NUMBER = "6285853500269";
+
+        let activeKasirData = {
+            kasir_id: null,
+            starlink_unit: null,
+            allocated_at: null,
+            last_reported_at: null,
+            last_json_sent_at: null,
+            last_transfer_at: null,
+            vouchers: []
+        };
+
+        let currentKasirPin = "1234";
+        let selectedPackageForSale = null;
+        let lastSoldVouchersList = [];
+        
+        let isSalesLockedByWaReminder = false;
+        let isSalesLockedByJsonReminder = false;
+
+        function encryptData(obj, secretKey = APP_MASTER_LOCK_PIN) {
+            const jsonString = JSON.stringify(obj);
+            let encrypted = "";
+            for (let i = 0; i < jsonString.length; i++) {
+                const charCode = jsonString.charCodeAt(i) ^ secretKey.charCodeAt(i % secretKey.length);
+                encrypted += String.fromCharCode(charCode);
+            }
+            return btoa(encrypted);
+        }
+
+        function decryptData(encryptedBase64, secretKey = APP_MASTER_LOCK_PIN) {
+            try {
+                const encrypted = atob(encryptedBase64);
+                let decrypted = "";
+                for (let i = 0; i < encrypted.length; i++) {
+                    const charCode = encrypted.charCodeAt(i) ^ secretKey.charCodeAt(i % secretKey.length);
+                    decrypted += String.fromCharCode(charCode);
+                }
+                return JSON.parse(decrypted);
+            } catch (e) {
+                return null;
+            }
+        }
+
+        /**
+         * FUNGSI PEMERIKSAAN TANGGAL KHUSUS PAKET 1 BULAN
+         * Mengembalikan true jika paket adalah Paket 1 Bulan & hari ini sudah melewati Tanggal 5.
+         */
+        function isMonthlyPackageLocked(pkgName) {
+            if (!pkgName) return false;
+            const normalizedPkg = pkgName.toLowerCase().trim();
+            if (normalizedPkg.includes("1 bulan") || normalizedPkg.includes("1bulan")) {
+                const todayDate = new Date().getDate();
+                if (todayDate > 5) { // Terkunci jika tanggal 6, 7, ..., 31
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            initTheme();
+            loadKasirStateFromStorage();
+            checkRecapReminder3Hours();
+            renderPOSView();
+
+            setInterval(checkRecapReminder3Hours, 10000);
+            setInterval(autoDownloadMasterJSON5Hours, 5 * 60 * 60 * 1000);
+        });
+
+        function loadKasirStateFromStorage() {
+            try {
+                const savedData = localStorage.getItem(STORAGE_KEY_KASIR_DATA);
+                const savedPin = localStorage.getItem(STORAGE_KEY_KASIR_PIN);
+
+                if (savedData) {
+                    activeKasirData = JSON.parse(savedData);
+                    if (Array.isArray(activeKasirData.vouchers)) {
+                        activeKasirData.vouchers.forEach(v => {
+                            if (v.code) v.code = String(v.code).toLowerCase();
+                        });
+                    }
+                }
+                if (savedPin) currentKasirPin = savedPin;
+            } catch (e) {
+                showToast('Gagal memuat memori lokal!', 'danger');
+            }
+        }
+
+        function saveKasirStateToStorage() {
+            try {
+                localStorage.setItem(STORAGE_KEY_KASIR_DATA, JSON.stringify(activeKasirData));
+                localStorage.setItem(STORAGE_KEY_KASIR_PIN, currentKasirPin);
+            } catch (e) {
+                showToast('Penyimpanan lokal penuh!', 'danger');
+            }
+        }
+
+        function openAppLockModal() {
+            document.getElementById('input-app-lock-pin').value = '';
+            document.getElementById('modal-app-lock').classList.remove('hidden');
+            setTimeout(() => document.getElementById('input-app-lock-pin').focus(), 100);
+        }
+
+        function closeAppLockModal() {
+            document.getElementById('modal-app-lock').classList.add('hidden');
+        }
+
+        function verifyAppMasterLock() {
+            const input = document.getElementById('input-app-lock-pin').value;
+            if (input === APP_MASTER_LOCK_PIN) {
+                closeAppLockModal();
+                showToast('Verifikasi Berhasil!', 'success');
+            } else {
+                showToast('Sandi Otentikasi Salah!', 'danger');
+            }
+        }
+
+        function openDeleteMasterModal() {
+            document.getElementById('input-delete-master-pin').value = '';
+            document.getElementById('modal-delete-master').classList.remove('hidden');
+            setTimeout(() => document.getElementById('input-delete-master-pin').focus(), 100);
+        }
+
+        function closeDeleteMasterModal() {
+            document.getElementById('modal-delete-master').classList.add('hidden');
+        }
+
+        function submitDeleteMasterData() {
+            const inputPin = document.getElementById('input-delete-master-pin').value;
+            if (inputPin !== APP_MASTER_LOCK_PIN) {
+                showToast('Sandi Keamanan Salah!', 'danger');
+                return;
+            }
+
+            activeKasirData = {
+                kasir_id: null,
+                starlink_unit: null,
+                allocated_at: null,
+                last_reported_at: null,
+                last_json_sent_at: null,
+                last_transfer_at: null,
+                vouchers: []
+            };
+
+            saveKasirStateToStorage();
+            checkRecapReminder3Hours();
+            renderPOSView();
+            updateMasterDataTabInfo();
+            closeDeleteMasterModal();
+            showToast('Seluruh data master berhasil dihapus!', 'success');
+        }
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('text-emerald-600', 'font-bold');
+                btn.classList.add('text-slate-400', 'font-medium');
+            });
+
+            document.getElementById(`tab-${tabId}`).classList.remove('hidden');
+            document.getElementById(`tab-btn-${tabId}`).classList.remove('text-slate-400', 'font-medium');
+            document.getElementById(`tab-btn-${tabId}`).classList.add('text-emerald-600', 'font-bold');
+
+            if (tabId === 'master-data') updateMasterDataTabInfo();
+            if (tabId === 'shift-history') renderHistoryTable();
+        }
+
+        function initTheme() {
+            const isDark = localStorage.getItem('theme') === 'dark' || 
+                (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches);
+            if (isDark) {
+                document.documentElement.classList.add('dark');
+                document.getElementById('theme-icon').className = 'fa-solid fa-sun';
+            } else {
+                document.documentElement.classList.remove('dark');
+                document.getElementById('theme-icon').className = 'fa-solid fa-moon';
+            }
+        }
+
+        document.getElementById('theme-toggle').addEventListener('click', () => {
+            const isDark = document.documentElement.classList.toggle('dark');
+            localStorage.setItem('theme', isDark ? 'dark' : 'light');
+            document.getElementById('theme-icon').className = isDark ? 'fa-solid fa-sun' : 'fa-solid fa-moon';
+        });
+
+        function importAlokasiJSON(event) {
+            const file = event.target.files[0];
+            if (!file || !file.name.endsWith('.json')) {
+                showToast('Pilih file alokasi berformat .json!', 'danger');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    let data = null;
+                    const rawText = e.target.result;
+
+                    try {
+                        data = JSON.parse(rawText);
+                    } catch (parseErr) {
+                        data = decryptData(rawText, APP_MASTER_LOCK_PIN);
+                    }
+
+                    if (!data || !data.kasir_id || !Array.isArray(data.vouchers)) {
+                        showToast('Struktur file atau sandi terenkripsi tidak valid!', 'danger');
+                        return;
+                    }
+
+                    // FILTRASI STRICT STARLINK: Menolak bila unit Starlink yang dimuatkan berbeza
+                    if (activeKasirData.starlink_unit && data.starlink_unit && activeKasirData.starlink_unit !== data.starlink_unit) {
+                        showToast(`Gagal! Kasir ini terdaftar di "${activeKasirData.starlink_unit}", tidak dapat menerima file alokasi dari "${data.starlink_unit}"!`, 'danger');
+                        event.target.value = '';
+                        return;
+                    }
+
+                    if (activeKasirData.kasir_id && activeKasirData.kasir_id !== data.kasir_id) {
+                        showToast(`Gagal! Anda terdaftar sebagai ${activeKasirData.kasir_id}, tidak bisa mengunggah file alokasi milik ${data.kasir_id}!`, 'danger');
+                        event.target.value = '';
+                        return;
+                    }
+
+                    if (!activeKasirData.kasir_id) {
+                        activeKasirData.kasir_id = data.kasir_id;
+                    }
+                    if (data.starlink_unit) {
+                        activeKasirData.starlink_unit = data.starlink_unit;
+                    }
+
+                    const existingMap = new Map();
+                    activeKasirData.vouchers.forEach(v => existingMap.set(v.sequence_id, v));
+
+                    let addedCount = 0;
+                    data.vouchers.forEach(newV => {
+                        if (newV.code) newV.code = String(newV.code).toLowerCase();
+
+                        if (!existingMap.has(newV.sequence_id)) {
+                            activeKasirData.vouchers.push(newV);
+                            addedCount++;
+                        }
+                    });
+
+                    saveKasirStateToStorage();
+                    checkRecapReminder3Hours();
+                    renderPOSView();
+                    showToast(`Berhasil menambahkan ${addedCount} stok voucher baru untuk ${activeKasirData.kasir_id}!`, 'success');
+
+                } catch (err) {
+                    showToast('Gagal membaca file JSON!', 'danger');
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function renderPOSView() {
+            const headerKasir = document.getElementById('header-kasir-id');
+            const headerStarlink = document.getElementById('header-starlink-unit');
+            const totalReadyBadge = document.getElementById('total-ready-badge');
+            const grid = document.getElementById('pos-grid');
+
+            if (!activeKasirData.kasir_id) {
+                headerKasir.textContent = 'Kasir: Belum Set';
+                if(headerStarlink) headerStarlink.classList.add('hidden');
+                totalReadyBadge.textContent = 'Stok: 0 Pcs';
+                grid.innerHTML = `
+                    <div class="col-span-2 py-12 text-center text-slate-400 text-xs bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700">
+                        <i class="fa-solid fa-box-open text-3xl mb-1 block"></i>
+                        Belum ada stok voucher. Silakan upload file alokasi dari Admin di Tab 2.
+                    </div>
+                `;
+                renderHistoryTable();
+                return;
+            }
+
+            headerKasir.textContent = `Kasir: ${activeKasirData.kasir_id}`;
+            if(headerStarlink && activeKasirData.starlink_unit) {
+                headerStarlink.textContent = activeKasirData.starlink_unit;
+                headerStarlink.classList.remove('hidden');
+            }
+
+            const pkgGroups = {};
+            let readyTotal = 0;
+
+            activeKasirData.vouchers.forEach(v => {
+                if (v.code) v.code = String(v.code).toLowerCase();
+
+                if (!pkgGroups[v.package_type]) {
+                    pkgGroups[v.package_type] = { price: v.price, ready: [] };
+                }
+                if (v.status !== 'sold') {
+                    pkgGroups[v.package_type].ready.push(v);
+                    readyTotal++;
+                }
+            });
+
+            totalReadyBadge.textContent = `Stok Siap: ${readyTotal} Pcs`;
+
+            grid.innerHTML = '';
+            const pkgKeys = Object.keys(pkgGroups);
+
+            if (pkgKeys.length === 0) {
+                grid.innerHTML = `<div class="col-span-2 py-8 text-center text-slate-400 text-xs">Stok voucher kosong.</div>`;
+                return;
+            }
+
+            const isAnyLockActive = isSalesLockedByWaReminder || isSalesLockedByJsonReminder;
+
+            pkgKeys.forEach(pkg => {
+                const group = pkgGroups[pkg];
+                const available = group.ready.length;
+
+                // CEK APAKAH PAKET Adalah PAKET 1 BULAN & TANGGAL > 5
+                const isMonthlyLocked = isMonthlyPackageLocked(pkg);
+
+                const isBtnDisabled = available === 0 || isAnyLockActive || isMonthlyLocked;
+                
+                let btnLabel = "Jual Voucher";
+                if (isMonthlyLocked) {
+                    btnLabel = "Terkunci (Tgl 1-5 Only)";
+                } else if (isSalesLockedByWaReminder) {
+                    btnLabel = "Terkunci (Rekap 3J)";
+                } else if (isSalesLockedByJsonReminder) {
+                    btnLabel = "Terkunci (File JSON)";
+                }
+
+                const card = document.createElement('div');
+                card.className = `bg-white dark:bg-slate-800 rounded-2xl p-3.5 border ${isMonthlyLocked ? 'border-rose-300 dark:border-rose-900/60' : 'border-slate-200 dark:border-slate-700'} shadow-sm space-y-2 flex flex-col justify-between`;
+                card.innerHTML = `
+                    <div>
+                        <div class="flex items-center justify-between gap-1">
+                            <span class="text-xs font-bold text-slate-900 dark:text-white block truncate">${escapeHtml(pkg)}</span>
+                            ${isMonthlyLocked ? '<i class="fa-solid fa-lock text-rose-500 text-xs" title="Khusus tanggal 1-5"></i>' : ''}
+                        </div>
+                        <span class="text-sm font-black text-emerald-600 dark:text-emerald-400 block mt-0.5">Rp ${group.price.toLocaleString('id-ID')}</span>
+                        <span class="text-[10px] text-slate-400 block mt-1 font-semibold">Tersedia: ${available} Pcs</span>
+                    </div>
+                    <button onclick="openPinModal('${escapeHtml(pkg)}', ${available})" ${isBtnDisabled ? 'disabled' : ''} class="w-full py-2 px-2 ${!isBtnDisabled ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm' : 'bg-slate-200 dark:bg-slate-700 text-slate-400 dark:text-slate-500 cursor-not-allowed'} rounded-xl text-xs font-bold transition-all mt-1">
+                        ${btnLabel}
+                    </button>
+                `;
+                grid.appendChild(card);
+            });
+
+            renderHistoryTable();
+        }
+
+        function openPinModal(pkgType, maxAvailable) {
+            if (isMonthlyPackageLocked(pkgType)) {
+                showToast('Paket 1 Bulan hanya dapat dijual pada tanggal 1 sampai 5!', 'danger');
+                return;
+            }
+
+            if (isSalesLockedByWaReminder || isSalesLockedByJsonReminder) {
+                showToast('Penjualan terkunci! Buka Tab 3 untuk melakukan pengiriman laporan.', 'warning');
+                return;
+            }
+
+            selectedPackageForSale = pkgType;
+            const qtyInput = document.getElementById('input-sell-qty');
+            qtyInput.value = 1;
+            qtyInput.max = maxAvailable;
+
+            document.getElementById('input-kasir-pin').value = '';
+            document.getElementById('pin-modal-pkg').textContent = `Paket: ${pkgType} (Sisa Stok: ${maxAvailable} Pcs)`;
+            document.getElementById('modal-pin').classList.remove('hidden');
+            setTimeout(() => qtyInput.focus(), 100);
+        }
+
+        function closePinModal() {
+            document.getElementById('modal-pin').classList.add('hidden');
+        }
+
+        function submitPinAndSell() {
+            if (isMonthlyPackageLocked(selectedPackageForSale)) {
+                closePinModal();
+                showToast('Penjualan Paket 1 Bulan dikunci setelah tanggal 5!', 'danger');
+                return;
+            }
+
+            if (isSalesLockedByWaReminder || isSalesLockedByJsonReminder) {
+                closePinModal();
+                showToast('Penjualan terkunci! Silakan lakukan pengiriman di Tab 3.', 'danger');
+                return;
+            }
+
+            const inputPin = document.getElementById('input-kasir-pin').value;
+            const qty = parseInt(document.getElementById('input-sell-qty').value) || 0;
+
+            if (inputPin !== currentKasirPin) {
+                showToast('PIN / Sandi Kasir Salah!', 'danger');
+                return;
+            }
+
+            if (qty <= 0) {
+                showToast('Masukkan jumlah voucher yang valid!', 'warning');
+                return;
+            }
+
+            const readyVouchers = activeKasirData.vouchers.filter(v => v.package_type === selectedPackageForSale && v.status !== 'sold');
+            readyVouchers.sort((a, b) => a.sequence_id - b.sequence_id);
+
+            if (qty > readyVouchers.length) {
+                showToast(`Stok tidak cukup! Hanya tersedia ${readyVouchers.length} Pcs.`, 'warning');
+                return;
+            }
+
+            closePinModal();
+
+            const takenVouchers = readyVouchers.slice(0, qty);
+            const nowISO = new Date().toISOString();
+
+            takenVouchers.forEach(v => {
+                v.status = 'sold';
+                v.sold_at = nowISO;
+                if (v.code) v.code = String(v.code).toLowerCase();
+            });
+
+            lastSoldVouchersList = takenVouchers;
+
+            saveKasirStateToStorage();
+            checkRecapReminder3Hours();
+            renderPOSView();
+
+            const totalPrice = takenVouchers.reduce((sum, item) => sum + item.price, 0);
+            document.getElementById('success-modal-pkg').textContent = `${takenVouchers[0].package_type} (${qty} Pcs) - Total: Rp ${totalPrice.toLocaleString('id-ID')}`;
+            
+            const codesContainer = document.getElementById('success-modal-codes-container');
+            codesContainer.innerHTML = '';
+            takenVouchers.forEach((v, idx) => {
+                const codeDiv = document.createElement('div');
+                codeDiv.textContent = `${idx + 1}. ${String(v.code).toLowerCase()}`;
+                codesContainer.appendChild(codeDiv);
+            });
+
+            document.getElementById('input-customer-wa').value = '';
+            document.getElementById('modal-success').classList.remove('hidden');
+        }
+
+        function closeSuccessModal() {
+            document.getElementById('modal-success').classList.add('hidden');
+        }
+
+        function sendVoucherToCustomerWA(customVouchers = null) {
+            const targetList = customVouchers || lastSoldVouchersList;
+            if (!targetList || targetList.length === 0) return;
+
+            let phone = document.getElementById('input-customer-wa').value.trim().replace(/[^0-9]/g, '');
+            if (!phone && !customVouchers) {
+                showToast('Masukkan nomor WhatsApp pelanggan!', 'warning');
+                return;
+            }
+
+            if (!phone) {
+                phone = prompt("Masukkan No. WA Pelanggan (misal: 08123456789):", "");
+                if (!phone) return;
+                phone = phone.trim().replace(/[^0-9]/g, '');
+            }
+
+            if (phone.startsWith('0')) phone = '62' + phone.slice(1);
+
+            const pkgName = targetList[0].package_type;
+            const totalPrice = targetList.reduce((sum, item) => sum + item.price, 0);
+
+            let voucherCodesText = "";
+            targetList.forEach((v, idx) => {
+                voucherCodesText += `Kode ${idx + 1}: *${String(v.code).toLowerCase()}*\n`;
+            });
+
+            const message = `*VOUCHER WIFI INTERNET*\n\n` +
+                `Paket: *${pkgName}*\n` +
+                `Jumlah: *${targetList.length} Pcs*\n` +
+                `Total Bayar: Rp ${totalPrice.toLocaleString('id-ID')}\n\n` +
+                `*DAFTAR KODE VOUCHER:*\n${voucherCodesText}\n` +
+                `*Petunjuk Login:*\n` +
+                `1. Konek ke WiFi Hotspot\n` +
+                `2. Masukkan Kode Voucher di atas\n\n` +
+                `Terima Kasih!`;
+
+            window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank');
+            closeSuccessModal();
+        }
+
+        function renderHistoryTable() {
+            const tbody = document.getElementById('history-tbody');
+            const emptyEl = document.getElementById('history-empty');
+            const shiftSoldCount = document.getElementById('shift-sold-count');
+            const shiftRevenue = document.getElementById('shift-revenue');
+            const breakdownContainer = document.getElementById('shift-package-breakdown');
+            const shiftDateLabel = document.getElementById('shift-date-label');
+
+            tbody.innerHTML = '';
+            const soldList = activeKasirData.vouchers.filter(v => v.status === 'sold');
+            soldList.sort((a, b) => new Date(b.sold_at) - new Date(a.sold_at));
+
+            const todayStr = new Date().toISOString().slice(0, 10);
+            shiftDateLabel.textContent = `Tanggal: ${todayStr}`;
+
+            let todayTotalRev = 0;
+            let todayTotalCount = 0;
+            const todayPkgStats = {};
+            const dailyMap = {};
+
+            soldList.forEach(v => {
+                if (v.sold_at) {
+                    const dateKey = v.sold_at.slice(0, 10);
+                    if (!dailyMap[dateKey]) {
+                        dailyMap[dateKey] = { count: 0, revenue: 0 };
+                    }
+                    dailyMap[dateKey].count++;
+                    dailyMap[dateKey].revenue += v.price;
+
+                    if (dateKey === todayStr) {
+                        todayTotalCount++;
+                        todayTotalRev += v.price;
+                        if (!todayPkgStats[v.package_type]) {
+                            todayPkgStats[v.package_type] = { count: 0, revenue: 0 };
+                        }
+                        todayPkgStats[v.package_type].count++;
+                        todayPkgStats[v.package_type].revenue += v.price;
+                    }
+                }
+            });
+
+            shiftSoldCount.textContent = `Total Hari Ini: ${todayTotalCount} Pcs`;
+            shiftRevenue.textContent = `Rp ${todayTotalRev.toLocaleString('id-ID')}`;
+
+            breakdownContainer.innerHTML = '';
+            const pkgKeys = Object.keys(todayPkgStats);
+            if (pkgKeys.length === 0) {
+                breakdownContainer.innerHTML = `<div class="text-slate-400 text-[11px] italic">Belum ada data penjualan hari ini.</div>`;
+            } else {
+                pkgKeys.forEach(pkg => {
+                    const stat = todayPkgStats[pkg];
+                    const row = document.createElement('div');
+                    row.className = "flex justify-between items-center bg-slate-50 dark:bg-slate-900/60 p-2 rounded-xl border border-slate-100 dark:border-slate-700/60";
+                    row.innerHTML = `
+                        <div>
+                            <span class="font-bold text-slate-800 dark:text-slate-200">${escapeHtml(pkg)}</span>
+                            <span class="text-[10px] text-slate-400 block">${stat.count} Pcs Terjual</span>
+                        </div>
+                        <span class="font-extrabold text-emerald-600 dark:text-emerald-400">Rp ${stat.revenue.toLocaleString('id-ID')}</span>
+                    `;
+                    breakdownContainer.appendChild(row);
+                });
+            }
+
+            renderDailyRecapTable(dailyMap);
+
+            if (soldList.length === 0) {
+                emptyEl.classList.remove('hidden');
+                return;
+            }
+            emptyEl.classList.add('hidden');
+
+            soldList.forEach(v => {
+                const tr = document.createElement('tr');
+                const lowercaseCode = String(v.code).toLowerCase();
+                tr.innerHTML = `
+                    <td class="py-2 font-mono font-bold text-emerald-600 dark:text-emerald-400 lowercase">${lowercaseCode}</td>
+                    <td class="py-2 font-medium">${v.package_type}</td>
+                    <td class="py-2 text-right">
+                        <button onclick='resendVoucherWA(${JSON.stringify(v)})' title="Kirim Ulang Ke WA" class="px-2 py-1 bg-emerald-50 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-400 rounded-lg text-xs font-bold inline-flex items-center gap-1">
+                            <i class="fa-brands fa-whatsapp text-sm"></i> Kirim
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function renderDailyRecapTable(dailyMap) {
+            const tbody = document.getElementById('daily-recap-tbody');
+            const emptyEl = document.getElementById('daily-recap-empty');
+
+            tbody.innerHTML = '';
+            const dates = Object.keys(dailyMap).sort().reverse();
+
+            if (dates.length === 0) {
+                emptyEl.classList.remove('hidden');
+                return;
+            }
+            emptyEl.classList.add('hidden');
+
+            dates.forEach(dateStr => {
+                const item = dailyMap[dateStr];
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="py-2 font-bold text-slate-800 dark:text-slate-200">${dateStr}</td>
+                    <td class="py-2 text-center font-semibold text-emerald-600 dark:text-emerald-400">${item.count} Pcs</td>
+                    <td class="py-2 text-right font-extrabold text-slate-900 dark:text-white">Rp ${item.revenue.toLocaleString('id-ID')}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function resendVoucherWA(v) {
+            lastSoldVouchersList = [v];
+            sendVoucherToCustomerWA([v]);
+        }
+
+        function changeKasirPin() {
+            const oldPin = document.getElementById('reset-pin-old').value;
+            const newPin = document.getElementById('reset-pin-new').value.trim();
+
+            if (oldPin !== currentKasirPin) {
+                showToast('Sandi lama Anda tidak cocok!', 'danger');
+                return;
+            }
+
+            if (!newPin || newPin.length < 4) {
+                showToast('Sandi baru minimal 4 angka!', 'warning');
+                return;
+            }
+
+            currentKasirPin = newPin;
+            saveKasirStateToStorage();
+            document.getElementById('reset-pin-old').value = '';
+            document.getElementById('reset-pin-new').value = '';
+            showToast('Sandi Kasir berhasil diperbarui!', 'success');
+        }
+
+        function getUnreportedSoldVouchers() {
+            const lastReportedTime = activeKasirData.last_reported_at ? new Date(activeKasirData.last_reported_at) : new Date(0);
+            return activeKasirData.vouchers.filter(v => v.status === 'sold' && v.sold_at && new Date(v.sold_at) > lastReportedTime);
+        }
+
+        function getUntransferredSoldVouchers() {
+            const lastTransferTime = activeKasirData.last_transfer_at ? new Date(activeKasirData.last_transfer_at) : new Date(0);
+            return activeKasirData.vouchers.filter(v => v.status === 'sold' && v.sold_at && new Date(v.sold_at) > lastTransferTime);
+        }
+
+        function updateMasterDataTabInfo() {
+            const unreported = getUnreportedSoldVouchers();
+            document.getElementById('unreported-count').textContent = `${unreported.length} Pcs`;
+
+            const todayStr = new Date().toISOString().slice(0, 10);
+            const jsonStatusEl = document.getElementById('json-reported-status');
+
+            if (activeKasirData.last_json_sent_at && activeKasirData.last_json_sent_at.slice(0, 10) === todayStr) {
+                jsonStatusEl.textContent = "Sudah Dikirim Hari Ini";
+                jsonStatusEl.className = "text-emerald-600 dark:text-emerald-400 font-bold";
+            } else {
+                jsonStatusEl.textContent = "Belum Dikirim Hari Ini";
+                jsonStatusEl.className = "text-amber-600 dark:text-amber-400 font-bold";
+            }
+        }
+
+        function sendSalesRecapToAdminWA() {
+            const unreported = getUnreportedSoldVouchers();
+            if (unreported.length === 0) {
+                showToast('Belum ada transaksi baru sejak pengiriman rekap WA terakhir!', 'warning');
+                return;
+            }
+
+            let totalRev = 0;
+            const pkgSummary = {};
+            const pkgCodesMap = {};
+
+            unreported.forEach(v => {
+                totalRev += v.price;
+                pkgSummary[v.package_type] = (pkgSummary[v.package_type] || 0) + 1;
+                
+                if (!pkgCodesMap[v.package_type]) {
+                    pkgCodesMap[v.package_type] = [];
+                }
+                if (v.code) {
+                    pkgCodesMap[v.package_type].push(String(v.code).toLowerCase());
+                }
+            });
+
+            let summaryText = Object.keys(pkgSummary).map(k => `- ${k}: ${pkgSummary[k]} Pcs`).join('\n');
+            
+            let formattedCodesByPkg = "";
+            Object.keys(pkgCodesMap).forEach(pkgName => {
+                const codes = pkgCodesMap[pkgName].join(', ');
+                formattedCodesByPkg += `📌 *${pkgName}:*\n${codes}\n\n`;
+            });
+
+            const message = `*LAPORAN PENJUALAN KASIR*\n\n` +
+                `Kasir: *${activeKasirData.kasir_id}*\n` +
+                (activeKasirData.starlink_unit ? `Unit: *${activeKasirData.starlink_unit}*\n` : '') +
+                `Waktu: ${new Date().toLocaleString('id-ID')}\n\n` +
+                `*Rincian Penjualan Terkini:*\n${summaryText}\n\n` +
+                `Total Terjual: *${unreported.length} Pcs*\n` +
+                `Total Omset: *Rp ${totalRev.toLocaleString('id-ID')}*\n\n` +
+                `*Daftar Kode Voucher Terjual Per Paket:*\n\n${formattedCodesByPkg.trim()}`;
+
+            activeKasirData.last_reported_at = new Date().toISOString();
+            saveKasirStateToStorage();
+            
+            checkRecapReminder3Hours();
+            renderPOSView();
+            updateMasterDataTabInfo();
+
+            window.open(`https://wa.me/${ADMIN_WA_NUMBER}?text=${encodeURIComponent(message)}`, '_blank');
+        }
+
+        function sendMasterJSONToAdminWA() {
+            const todayStr = new Date().toISOString().slice(0, 10);
+            
+            activeKasirData.last_json_sent_at = new Date().toISOString();
+            saveKasirStateToStorage();
+
+            downloadKasirMasterJSON();
+
+            const message = `*PENGIRIMAN FILE JSON LAPORAN PENJUALAN*\n\n` +
+                `Kasir: *${activeKasirData.kasir_id}*\n` +
+                (activeKasirData.starlink_unit ? `Unit: *${activeKasirData.starlink_unit}*\n` : '') +
+                `Tanggal Laporan: *${todayStr}*\n` +
+                `Waktu Kirim: ${new Date().toLocaleString('id-ID')}\n\n` +
+                `_File JSON terenkripsi telah berhasil diunduh dan siap dilampirkan._`;
+
+            checkRecapReminder3Hours();
+            renderPOSView();
+            updateMasterDataTabInfo();
+
+            window.open(`https://wa.me/${ADMIN_WA_NUMBER}?text=${encodeURIComponent(message)}`, '_blank');
+        }
+
+        function sendTransferToAdminWA() {
+            const untransferred = getUntransferredSoldVouchers();
+            if (untransferred.length === 0) {
+                showToast('Belum ada transaksi baru sejak transfer terakhir!', 'warning');
+                return;
+            }
+
+            let totalRev = 0;
+            const pkgStatsMap = {};
+            const pkgCodesMap = {};
+
+            untransferred.forEach(v => {
+                totalRev += v.price;
+
+                if (!pkgStatsMap[v.package_type]) {
+                    pkgStatsMap[v.package_type] = { count: 0, revenue: 0 };
+                    pkgCodesMap[v.package_type] = [];
+                }
+
+                pkgStatsMap[v.package_type].count += 1;
+                pkgStatsMap[v.package_type].revenue += v.price;
+                if (v.code) {
+                    pkgCodesMap[v.package_type].push(String(v.code).toLowerCase());
+                }
+            });
+
+            let omsetBreakdownText = "";
+            let formattedCodesByPkg = "";
+
+            Object.keys(pkgStatsMap).forEach(pkgName => {
+                const stat = pkgStatsMap[pkgName];
+                omsetBreakdownText += `• *${pkgName}*: ${stat.count} Pcs : Rp ${stat.revenue.toLocaleString('id-ID')}\n`;
+                
+                const codes = pkgCodesMap[pkgName].join(', ');
+                formattedCodesByPkg += `📌 *${pkgName}:*\n${codes}\n\n`;
+            });
+
+            const message = `*LAPORAN TRANSFER OMSET PENDAPATAN KASIR*\n\n` +
+                `Kasir: *${activeKasirData.kasir_id}*\n` +
+                (activeKasirData.starlink_unit ? `Unit: *${activeKasirData.starlink_unit}*\n` : '') +
+                `Waktu Transfer: ${new Date().toLocaleString('id-ID')}\n\n` +
+                `*OMSET PENJUALAN PER-PAKET (Periode Ini):*\n${omsetBreakdownText}\n` +
+                `*TOTAL KESELURUHAN DITRANSFER:*\n` +
+                `- Total Voucher Terjual: *${untransferred.length} Pcs*\n` +
+                `- Total Omset Ditransfer: *Rp ${totalRev.toLocaleString('id-ID')}*\n\n` +
+                `*DAFTAR KODE VOUCHER TERJUAL:*\n\n${formattedCodesByPkg.trim()}`;
+
+            activeKasirData.last_transfer_at = new Date().toISOString();
+            saveKasirStateToStorage();
+            
+            checkRecapReminder3Hours();
+            renderPOSView();
+            updateMasterDataTabInfo();
+
+            window.open(`https://wa.me/${ADMIN_WA_NUMBER}?text=${encodeURIComponent(message)}`, '_blank');
+        }
+
+        function checkRecapReminder3Hours() {
+            const now = new Date();
+            const currentHour = now.getHours();
+            const todayStr = now.toISOString().slice(0, 10);
+            
+            const unreported = getUnreportedSoldVouchers();
+            const banner = document.getElementById('recap-reminder-banner');
+            const bannerText = document.getElementById('recap-banner-text');
+
+            const prevLockWaState = isSalesLockedByWaReminder;
+            const prevLockJsonState = isSalesLockedByJsonReminder;
+
+            if (unreported.length === 0) {
+                isSalesLockedByWaReminder = false;
+            } else {
+                unreported.sort((a, b) => new Date(a.sold_at) - new Date(b.sold_at));
+                const earliestUnreportedTime = new Date(unreported[0].sold_at).getTime();
+                const nowTime = now.getTime();
+                const threeHoursInMs = 3 * 60 * 60 * 1000;
+                
+                isSalesLockedByWaReminder = (nowTime - earliestUnreportedTime >= threeHoursInMs);
+            }
+
+            const hasSentJsonToday = activeKasirData.last_json_sent_at && activeKasirData.last_json_sent_at.slice(0, 10) === todayStr;
+            const isKasirActive = activeKasirData.kasir_id !== null && activeKasirData.vouchers.length > 0;
+
+            if (currentHour >= 7 && isKasirActive && !hasSentJsonToday) {
+                isSalesLockedByJsonReminder = true;
+            } else {
+                isSalesLockedByJsonReminder = false;
+            }
+
+            if (isSalesLockedByWaReminder || isSalesLockedByJsonReminder) {
+                if (banner) banner.classList.remove('hidden');
+
+                if (isSalesLockedByWaReminder && isSalesLockedByJsonReminder) {
+                    if (bannerText) bannerText.textContent = "Penjualan dikunci! Wajib kirim Rekap WA (3 Jam) & File JSON Hari Ini di Tab 3.";
+                } else if (isSalesLockedByWaReminder) {
+                    if (bannerText) bannerText.textContent = "Penjualan dikunci! Waktu Rekap WA (3 Jam) telah tercapai. Buka Tab 3.";
+                } else if (isSalesLockedByJsonReminder) {
+                    if (bannerText) bannerText.textContent = "Penjualan dikunci! Sudah jam 07.00+, silakan kirim File JSON Hari Ini di Tab 3.";
+                }
+            } else {
+                if (banner) banner.classList.add('hidden');
+            }
+
+            if (prevLockWaState !== isSalesLockedByWaReminder || prevLockJsonState !== isSalesLockedByJsonReminder) {
+                const activeTab = document.querySelector('.tab-content:not(.hidden)');
+                if (activeTab && activeTab.id === 'tab-pos') {
+                    renderPOSView();
+                }
+            }
+        }
+
+        function autoDownloadMasterJSON5Hours() {
+            if (activeKasirData.vouchers.length > 0) {
+                downloadKasirMasterJSON();
+                showToast('Auto-Backup 5 Jam: File Master JSON Terenkripsi telah diunduh!', 'info');
+            }
+        }
+
+        function downloadKasirMasterJSON() {
+            const encryptedString = encryptData(activeKasirData, APP_MASTER_LOCK_PIN);
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(encryptedString);
+            const downloadAnchor = document.createElement('a');
+            const dateStr = new Date().toISOString().slice(0, 10);
+            const unitPrefix = activeKasirData.starlink_unit ? `${activeKasirData.starlink_unit.replace(/\s+/g, '_')}_` : '';
+            downloadAnchor.setAttribute("href", dataStr);
+            downloadAnchor.setAttribute("download", `LAPORAN_${unitPrefix}${activeKasirData.kasir_id || 'KASIR'}_${dateStr}.json`);
+            document.body.appendChild(downloadAnchor);
+            downloadAnchor.click();
+            downloadAnchor.remove();
+        }
+
+        function restoreKasirMasterJSON(event) {
+            const file = event.target.files[0];
+            if (!file || !file.name.endsWith('.json')) return;
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const rawText = e.target.result;
+                    let data = null;
+
+                    try {
+                        data = JSON.parse(rawText);
+                    } catch (parseErr) {
+                        data = decryptData(rawText, APP_MASTER_LOCK_PIN);
+                    }
+
+                    if (data && data.vouchers) {
+                        // FILTRASI STRICT STARLINK FOR RESTORE KASIR
+                        if (activeKasirData.starlink_unit && data.starlink_unit && activeKasirData.starlink_unit !== data.starlink_unit) {
+                            showToast(`Gagal! Fail backup ini milik unit "${data.starlink_unit}". Kasir ini berada pada "${activeKasirData.starlink_unit}"!`, 'danger');
+                            event.target.value = '';
+                            return;
+                        }
+
+                        data.vouchers.forEach(v => {
+                            if (v.code) v.code = String(v.code).toLowerCase();
+                        });
+
+                        activeKasirData = data;
+                        saveKasirStateToStorage();
+                        checkRecapReminder3Hours();
+                        renderPOSView();
+                        updateMasterDataTabInfo();
+                        showToast('Data master kasir berhasil dipulihkan dari file terenkripsi!', 'success');
+                    } else {
+                        showToast('File backup rusak atau sandi salah!', 'danger');
+                    }
+                } catch (err) {
+                    showToast('Gagal memulihkan database!', 'danger');
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+
+            const bgColors = {
+                success: 'bg-emerald-600 text-white',
+                danger: 'bg-rose-600 text-white',
+                warning: 'bg-amber-500 text-white',
+                info: 'bg-slate-800 text-white'
+            };
+
+            toast.className = `${bgColors[type] || bgColors.info} p-3 rounded-2xl shadow-xl text-xs font-semibold flex items-center gap-2 transition-all duration-300 pointer-events-auto`;
+            toast.innerHTML = `<span class="flex-1">${escapeHtml(message)}</span>`;
+
+            container.appendChild(toast);
+            setTimeout(() => toast.remove(), 4000);
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+    </script>
+</body>
+</html>
